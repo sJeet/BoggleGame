@@ -1,5 +1,18 @@
 /**
- * Created by jeet on 8/19/15.
+ * Compile the program first time:
+ *      >> javac PuzzleSolver.java
+ * Run the program:
+ *      >> java PuzzleSolver
+ * It will ask for giving file name as input
+ * Pass the .txt file name containing the puzzle.
+ *
+ * Example of file: Puzzle.txt
+ * ----------------------------
+ * catapult
+ * xzttoyoo
+ * yotoxtxx
+ *
+ * The program will count the number of words found in the puzzle.
  */
 
 
@@ -10,140 +23,111 @@ import java.io.*;
 public class PuzzleSolver {
 
     public static String[] DICTIONARY = {"OX","CAT","TOY","AT","DOG","CATAPULT","T"};
+    public char[][] puzzle;
 
-    public static class Item {
-        public final int xCord, yCord;
-        public final String prefixString;
+    public static boolean IsWord(String testWord)
+    {
+        for(String word : DICTIONARY) {
+            if(word.toLowerCase().equals(testWord)) return true;
+        }
+        return false;
+    }
 
-        public Item(int rowIndex, int columnIndex, String prefixStr) {
-            this.xCord = rowIndex;
-            this.yCord = columnIndex;
-            this.prefixString = prefixStr;
+    public boolean BuildPuzzle(ArrayList<String> puzzleLines) {
+        this.puzzle = new char[puzzleLines.size()][puzzleLines.get(0).length()];
+        try {
+            for (int rows = 0; rows < puzzleLines.size(); rows++) {
+                this.puzzle[rows] = puzzleLines.get(rows).toCharArray();
+            }
+
+            return true;
+        } catch (ArrayIndexOutOfBoundsException err) {
+            System.out.println("Error in building puzzle.");
+            return false;
         }
     }
 
-    public static Trie generateTrie() {
-        Trie trie = new Trie();
+    public static int FindWords(char[][] puzzle) {
 
-        for (String word : DICTIONARY) {
-            word = word.trim().toLowerCase();
-            trie.addWord(word);
-        }
-        return trie;
-    }
+        int row = puzzle.length;
+        int column = puzzle[0].length;
+        ArrayList<String> wordDiscovered = new ArrayList<String>();
 
-    public static int findWords(char[][] puzzle) {
-
-        Trie dictionary = generateTrie();
-
-        return findWords(puzzle, dictionary);
-
-    }
-
-    public static int findWords(char[][] puzzle, Trie dict) {
-
-        int m = puzzle.length;
-        int n = puzzle[0].length;
-        ArrayList<String> foundWords = new ArrayList<String>();
-
-        for (int i = 0; i < m; i++) {
-            for (int j = 0; j < n; j++) {
-                boolean[][] visited = new boolean[m][n];
-                findWordsDFS(foundWords, dict, puzzle, visited, new Item(i, j, ""), 7, 7);
+        for (int i = 0; i < row; i++) {
+            for (int j = 0; j < column; j++) {
+                boolean[][] isVisited = new boolean[row][column];
+                FindWordsUtils(puzzle, wordDiscovered, i, j, Integer.MAX_VALUE, Integer.MAX_VALUE, isVisited, "");
             }
         }
-        return foundWords.size();
+        return wordDiscovered.size();
     }
 
-    public static void findWordsDFS(ArrayList<String> foundWords, Trie dict, char[][] puzzle,
-                             boolean[][] visited, Item item, int xDir, int yDir) {
+    public static void FindWordsUtils(char[][] puzzle, ArrayList<String> wordDiscovered, int x, int y,
+                                      int horizontal, int vertical, boolean[][] isVisited, String builtStr) {
 
-        int m = puzzle.length;
-        int n = puzzle[0].length;
-        int x = item.xCord;
-        int y = item.yCord;
+        int row = puzzle.length;
+        int column = puzzle[0].length;
 
-        if (x < 0 || x >= m || y < 0 || y >= n) {
+        if (x < 0 || x >= row || y < 0 || y >= column) {
             return;
-        } else if (visited[x][y]) {
+        } else if (isVisited[x][y]) {
             return;
         }
 
-        String newPrefixString = item.prefixString + puzzle[x][y];
-        TrieNode foundWord = dict.matchWithDict(newPrefixString);
+        builtStr += puzzle[x][y];
 
-        if (foundWord == null) return;
-        if (foundWord.isWord()) foundWords.add(newPrefixString);
+        if(builtStr.equals(null)) return;
+        if(IsWord(builtStr)) wordDiscovered.add(builtStr);
 
-        visited[x][y] = true;
+        isVisited[x][y] = true;
 
-        for(int xOff = -1; xOff <= 1; xOff++) {
-            for(int yOff = -1; yOff <=1; yOff++) {
-                if(xOff == 0 && yOff == 0) {
-                    continue;
-                } else if((xDir == xOff && yDir == yOff) || (xDir == 7 && yDir == 7)){
-                    findWordsDFS(foundWords, dict, puzzle, visited, new Item(x + xOff, y + yOff, newPrefixString), xOff, yOff);
+        for(int xDir = -1; xDir <= 1; xDir++) {
+            for(int yDir = -1; yDir <=1; yDir++) {
+                if(xDir == 0 && yDir == 0) {
+                    //Do nothing
+                } else if((horizontal == Integer.MAX_VALUE && vertical == Integer.MAX_VALUE) ||
+                        (horizontal == xDir && vertical == yDir)){
+                    FindWordsUtils(puzzle, wordDiscovered, x + xDir, y + yDir, xDir, yDir, isVisited, builtStr);
                 }
             }
         }
 
-        visited[x][y] = false;
+        isVisited[x][y] = false;
     }
 
     public static void main(String[] args) {
 
-        String fileName = "input.txt";
-        String line = "";
-        if(args.length > 0) {
-            fileName = args[0];
-        }
+        System.out.println("Enter the file name contains Puzzle: ");
+        Scanner sc = new Scanner(System.in);
+        String fileName = sc.nextLine();
 
-        int indexForExt = fileName.lastIndexOf(".");
-        if(!(indexForExt > 0 && (fileName.substring(indexForExt + 1).equals("txt")))) {
-            System.out.println("Please pass '.txt' file containing puzzle.");
-            System.exit(2);
-        }
-
-        ArrayList<String> puzzleRows = new ArrayList<String>();
+        ArrayList<String> puzzleLines = new ArrayList<String>();
+        String eachLine;
 
         try {
-            FileReader fileReader = new FileReader(fileName);
-            BufferedReader bufferedReader = new BufferedReader(fileReader);
+            FileReader file = new FileReader(fileName);
+            BufferedReader buffer = new BufferedReader(file);
 
-            while((line = bufferedReader.readLine()) != null) {
-                puzzleRows.add(line.trim().toLowerCase());
+            while((eachLine = buffer.readLine()) != null) {
+                puzzleLines.add(eachLine.trim().toLowerCase());
             }
 
-            bufferedReader.close();
+            buffer.close();
         }
-        catch(FileNotFoundException ex) {
-            System.out.println("'" + fileName + "': File does not exist.");
+        catch(FileNotFoundException err) {
+            System.out.println("File does not exist.");
             System.exit(2);
         }
-        catch(IOException ex) {
-            System.out.println("'" + fileName + "': Error reading file.");
+        catch(IOException err) {
+            System.out.println("IO Exception.");
             System.exit(2);
         }
 
-        char[][] puzzle = new char[puzzleRows.size()][puzzleRows.get(0).length()];
-        for (int rows = 0; rows < puzzleRows.size(); rows++) {
-            puzzle[rows] = puzzleRows.get(rows).toCharArray();
+        PuzzleSolver solvePuzzle = new PuzzleSolver();
+        if(solvePuzzle.BuildPuzzle(puzzleLines)) {
+            System.out.println("Total words found in the puzzle: " + FindWords(solvePuzzle.puzzle));
+        } else {
+            System.out.println("Unable to build the puzzle from input file. Please try again.");
         }
-
-        System.out.println("===========================================");
-        System.out.println("Dictionary");
-        System.out.println("----------");
-        for(String wordInDict : DICTIONARY) {
-            System.out.print("'" + wordInDict + "' ");
-        }
-        System.out.println("\n===========================================");
-        System.out.println("Given Puzzle");
-        System.out.println("===========================================");
-        for(String eachLine: puzzleRows) {
-            System.out.println(eachLine.trim().toUpperCase());
-        }
-        System.out.println("===========================================");
-        System.out.println(findWords(puzzle) + " words are found in the given Puzzle");
-        System.out.println("===========================================");
     }
 }
